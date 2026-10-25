@@ -1,6 +1,7 @@
 """Offline explanatory plots from saved heat-pump scenario outputs."""
 import argparse
 import calendar
+import json
 from datetime import date, datetime
 from pathlib import Path
 
@@ -12,6 +13,9 @@ import seaborn as sns
 
 def plot_saved_outputs(root):
     root = Path(root)
+    metadata = json.loads((root/'run.json').read_text()) if (root/'run.json').exists() else {}
+    synthetic = metadata.get('weather', {}).get('synthetic', False)
+    weather_label = 'synthetic weather' if synthetic else 'observed weather'
     colors = dict(low='tab:blue', base='tab:orange', high='tab:red')
     frames = {s: pl.read_csv(root/s/'diagnostics.txt', separator='\t') for s in colors}
     base = frames['base']
@@ -27,7 +31,7 @@ def plot_saved_outputs(root):
         fig, ax = plt.subplots(figsize=(14, 5))
         sns.heatmap(grid, mask=np.isnan(grid), vmin=0, vmax=limit, cmap='magma', ax=ax,
                     xticklabels=range(1, 32), yticklabels=list(calendar.month_abbr)[1:], cbar_kws={'label': 'Modeled electricity (kWh/day)'})
-        ax.set(xlabel='Day of month', ylabel='Month', title=f'{year}: base heating scenario (assumed parameters)')
+        ax.set(xlabel='Day of month', ylabel='Month', title=f'{year}: base heating scenario, {weather_label} (assumed parameters)')
         fig.tight_layout(); fig.savefig(root/f'daily_heatmap_{year}.png', dpi=150); plt.close(fig)
     # Complete DJF local days only, pooled across requested weather years.
     counts = base.group_by('date').len()
@@ -47,11 +51,11 @@ def plot_saved_outputs(root):
                 ax.plot(hours, rows['consumption_kwh'], label=s, color=colors[s])
             rows = base.filter(pl.col('date') == day['date'])
             twin = ax.twinx()
-            twin.plot(hours, rows['outdoor_c'], '--', color='gray', label='Observed outdoor temperature')
+            twin.plot(hours, rows['outdoor_c'], '--', color='gray', label=f'Outdoor temperature ({weather_label})')
             twin.set_ylabel('Outdoor temperature (°C)')
             ax.set(title=day['date'], xlabel='Local hour', ylabel='Modeled electricity (kWh/hour)')
             ax.legend(loc='upper left')
-        fig.suptitle('Representative winter weather days; profiles are modeled')
+        fig.suptitle(f'Representative winter days, {weather_label}; consumption is modeled')
         fig.tight_layout(); fig.savefig(root/'winter_days.png', dpi=150); plt.close(fig)
         edges = np.quantile(winter['temperature'].to_numpy(), [.25, .5, .75])
         lookup = {r['date']: int(np.searchsorted(edges, r['temperature'])) for r in winter.iter_rows(named=True)}
@@ -70,7 +74,7 @@ def plot_saved_outputs(root):
             ax.fill_between(range(24), lower, upper, alpha=.2)
             count = sum(v == g for v in lookup.values())
             ax.set(title=f'Temperature quartile {g+1} (cold → mild), n={count} days', xlabel='Local hour', ylabel='Modeled electricity (kWh/hour)')
-        fig.suptitle('Base model: median and 10–90% weather-day spread; not confidence intervals')
+        fig.suptitle(f'Base model, {weather_label}: median and 10–90% day spread; not confidence intervals')
         fig.tight_layout(); fig.savefig(root/'winter_profiles.png', dpi=150); plt.close(fig)
     monthly = {}
     for s, frame in frames.items():
@@ -78,7 +82,7 @@ def plot_saved_outputs(root):
     fig, ax = plt.subplots(figsize=(14, 5))
     for s, frame in monthly.items():
         ax.plot(frame['month'].to_list(), frame['consumption_kwh'], label=s, color=colors[s])
-    ax.set(xlabel='Local calendar month', ylabel='Modeled electricity (kWh/month)', title='Bundled assumption sensitivity across historical weather; no fitted totals')
+    ax.set(xlabel='Local calendar month', ylabel='Modeled electricity (kWh/month)', title=f'Bundled assumption sensitivity, {weather_label}; no fitted totals')
     ax.tick_params(axis='x', rotation=60); ax.legend()
     fig.tight_layout(); fig.savefig(root/'scenario_comparison.png', dpi=150); plt.close(fig)
 

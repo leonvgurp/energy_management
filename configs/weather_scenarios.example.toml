@@ -1,0 +1,22 @@
+# Stationary-climate synthetic weather, not a forecast or climate projection.
+[weather]
+locality = "Leusden"
+timezone = "Europe/Amsterdam"
+station = 260
+station_name = "De Bilt"
+years = [2027] # fictional target calendar; does NOT predict this year's weather
+start = ""
+end = ""
+source = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
+
+[sampling]
+reference_years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+seed = 42
+members = 30
+block_days = 7
+seasonal_window_days = 21
+# Only block joins are constrained; real within-block changes remain intact.
+max_join_temperature_jump_c = 3.0
+# Descriptive checks, not heat-pump model parameters.
+heating_degree_base_c = 18.0
+cold_day_threshold_c = 0.0

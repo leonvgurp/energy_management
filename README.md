@@ -174,3 +174,19 @@ production and consumption separate. Local DST days have 23/25 hourly rows.
 Component-specific files remain available for existing plotting workflows.
 Boiler half-hour calculations are summed into hours; detailed steps are saved
 in `diagnostics.txt`, with hourly electrical use also in `hourly_consumption.txt`.
+
+## Synthetic weather for planning
+
+Generate fictional hourly weather years by sampling seasonally matched multi-day
+blocks from **2015–2025 KNMI observations (11 calendar years)**:
+
+```sh
+pixi run weather-scenarios --config configs/weather_scenarios.example.toml --output outputs/weather_scenarios_2027_seed42
+```
+
+The example produces 30 seeded samples with temperature, humidity, wind and sunshine
+kept together. It assumes a stationary reference climate, without forecasting
+specific dates or projecting climate change. Seeds, block length, seasonal window,
+join tolerance and target calendar are configurable. Each sample can drive the
+heat-pump model; match the model config's target calendar to the generated weather.
+See [sampling method, checks and exact consumption commands](docs/weather_scenarios.md).
