@@ -1,0 +1,84 @@
+# Sanitized illustrative assumptions, not a household calibration.
+[weather]
+locality = "Example, central Netherlands"
+timezone = "Europe/Amsterdam"
+station = 260
+station_name = "De Bilt"
+years = [2023, 2024, 2025]
+# Explicit local dates; end is exclusive. Empty means full requested years.
+start = ""
+end = ""
+source = "https://www.daggegevens.knmi.nl/klimatologie/uurgegevens"
+
+[house]
+setpoint_c = 20.0
+heated_areas_m2 = [50.0, 12.0]
+# H and C are independent assumptions, NOT inferred from area or label.
+heat_loss_kw_per_k = 0.16
+thermal_capacity_kwh_per_k = 12.0
+internal_gains_kw = 0.3
+solar_aperture_m2 = 3.0
+wind_loss_fraction_per_m_s = 0.0
+initial_indoor_c = 20.0
+
+[operation]
+curve = 0.5
+# Approximation: setpoint + curve * curve_multiplier * (setpoint - outdoor).
+curve_multiplier = 1.0
+min_flow_c = 24.0
+max_flow_c = 42.0
+heating_cutoff_c = 16.0
+summer_off_start = "05-15"
+summer_off_end = "09-15"
+# Recovery of indoor deficit; finite response avoids instantaneous reheating.
+recovery_hours = 8.0
+# First-order response of heat delivery request (effective floor/control lag).
+response_hours = 3.0
+initial_heating_kw = 0.0
+# Emitter conductance is an assumption; caps heat delivered at a given flow.
+emitter_kw_per_k = 0.45
+auxiliary_active_kw = 0.03
+auxiliary_standby_kw = 0.0
+cop_multiplier = 1.0
+capacity_multiplier = 1.0
+
+[performance]
+# Illustrative rectangular map, NOT manufacturer-certified data.
+source = "Assumed illustrative map; replace with sourced model-specific points"
+outdoor_c = [-10.0, 0.0, 10.0, 20.0]
+flow_c = [24.0, 42.0]
+# Rows outdoor temperature; columns flow temperature.
+cop = [[2.8, 2.1], [3.8, 2.8], [5.0, 3.6], [6.0, 4.4]]
+capacity_kw = [[6.0, 5.5], [7.0, 6.5], [8.0, 7.5], [8.0, 7.5]]
+# Explicit policy: clamp to map boundary, flag every affected hour.
+boundary_policy = "clamp_and_flag"
+
+[scenarios.low]
+heat_loss_factor = 0.75
+thermal_capacity_factor = 0.75
+cop_factor = 1.1
+shutdown_shift_days = -14
+
+[scenarios.base]
+heat_loss_factor = 1.0
+thermal_capacity_factor = 1.0
+cop_factor = 1.0
+shutdown_shift_days = 0
+
+[scenarios.high]
+heat_loss_factor = 1.25
+thermal_capacity_factor = 1.25
+cop_factor = 0.9
+shutdown_shift_days = 14
+
+# Verified reference points, NOT a complete performance map or maximum capacities.
+# Variant suffix S2 needs confirmation against the installed unit.
+[manufacturer_reference]
+model = "VWL 75/6 A 230V S2"
+source = "https://www.vaillant.ch/downloads/installationsanleitungen/deutsch/waermepumpen/installations-und-betriebsanleitung-arotherm-plus-vwl-35-75-2510805.pdf"
+document = "0020299004_09, printed pages 191-192, retrieved 2026-10-25"
+outdoor_c = [-7.0, 2.0, 7.0, 7.0]
+flow_c = [35.0, 35.0, 35.0, 45.0]
+cop = [2.8, 4.1, 4.8, 3.6]
+test_heating_output_kw = [7.0, 3.1, 4.6, 4.2]
+usage = "Reference only; simulator uses the explicit assumed rectangular performance map"

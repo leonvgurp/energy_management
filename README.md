@@ -102,3 +102,40 @@ location and `--offline` to require cached responses. Current example runs reuse
 a temporary cache outside the repository; their solar calendars and API provenance
 are saved in each output directory. Keep source attributions in downstream displays.
 See [equations and limitations](docs/solar_model.md).
+
+## Heat-pump scenarios
+
+The heat-pump component models space heating from hourly KNMI weather. It is
+**assumption-driven and uncalibrated**: all physical/control parameters live in
+TOML, and optional controller totals are comparisons only. No boiler, tap-water
+heating or cooling is included. See [model, configuration and limitations](docs/heat_pump_model.md).
+
+Start with the sanitized example and edit the private copy:
+
+```sh
+mkdir -p data
+cp configs/heat_pump.example.toml data/heat_pump.toml
+pixi run heat-pump-weather --config data/heat_pump.toml --output data/heat_pump_weather
+pixi run heat-pump --config data/heat_pump.toml --weather data/heat_pump_weather --output outputs/heat_pump
+pixi run heat-pump-plots --input outputs/heat_pump
+pixi run test
+```
+
+The existing local `data/heat_pump.toml` contains supplied household settings and
+explicit provisional assumptions; do not overwrite it when continuing that work.
+Optional local controller references can be included with
+`--references data/heat_pump_references.toml` on the model command. These files and
+all `data/`/`outputs/` content are ignored by Git.
+
+Weather defaults to 2023–2025 at De Bilt. Set `weather.start` and exclusive
+`weather.end` for a partial period; the requested weather must be complete.
+Use `--offline` on the weather task to require cached raw responses. Modeling and
+plotting use saved inputs and need no network. Keep the downloaded weather directory
+separate from model output directories.
+
+Outputs contain `low/`, `base/`, and `high/` scenario TSVs, `scenario_summary.txt`,
+`run.json`, `daily_heatmap_YEAR.png`, `winter_days.png`, `winter_profiles.png`, and
+`scenario_comparison.png`. Heatmaps show base-model daily electrical kWh; winter
+plots show gradual modeled hourly demand under observed weather. Sensitivity
+scenarios and weather-day spreads are **not confidence intervals**. Insufficient
+winter days omit winter plots. No measured hourly accuracy is claimed.
