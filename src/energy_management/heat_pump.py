@@ -150,7 +150,7 @@ def reference_comparisons(all_rows, reference):
                                 observed_electricity_kwh=observed, modeled_electricity_kwh=modeled,
                                 difference_kwh=None if modeled is None else modeled-observed,
                                 implied_heat_kwh=None if yield_kwh is None else yield_kwh+observed,
-                                implied_period_cop=None if yield_kwh is None else (yield_kwh+observed)/observed,
+                                implied_period_cop=None if yield_kwh is None or observed <= 0 else (yield_kwh+observed)/observed,
                                 scope=ref['scope'], uncertainty=ref['uncertainty']))
     return results
 

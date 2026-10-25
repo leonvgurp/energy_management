@@ -142,6 +142,24 @@ def test_saved_outputs_references_and_plots(tmp_path):
     assert comparison['implied_heat_kwh'] == 400
     assert comparison['implied_period_cop'] == 4
     assert comparison['difference_kwh'] != 0  # references never rescale
+    reference_path = tmp_path/'references.toml'
+    reference_path.write_text('''[[observations]]
+label = "Shutdown period"
+start = "2025-01-01"
+end = "2025-01-08"
+electricity_kwh = 0.0
+environmental_yield_kwh = 0.0
+scope = "Space heating"
+uncertainty = "Test reference"
+''')
+    run(cfg, wd, out, reference_path)
+    saved = json.loads((out/'run.json').read_text())
+    assert len(saved['comparisons']) == 3
+    for comparison in saved['comparisons']:
+        assert comparison['implied_period_cop'] is None
+        assert comparison['implied_heat_kwh'] == 0
+        assert comparison['coverage_complete']
+    assert before == (out/'base/hourly_consumption.txt').read_bytes()
     plot_saved_outputs(out)
     for name in ('daily_heatmap_2025.png','winter_days.png','winter_profiles.png','scenario_comparison.png'):
         assert (out/name).stat().st_size > 1000
