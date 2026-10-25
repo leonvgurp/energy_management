@@ -139,3 +139,38 @@ Outputs contain `low/`, `base/`, and `high/` scenario TSVs, `scenario_summary.tx
 plots show gradual modeled hourly demand under observed weather. Sensitivity
 scenarios and weather-day spreads are **not confidence intervals**. Insufficient
 winter days omit winter plots. No measured hourly accuracy is claimed.
+
+## Hot-water boiler (aroSTOR B200/5)
+
+A separate simple model uses the supplied **60°C** setpoint, full-tank-equivalent
+morning use at 08:30 and half-tank-equivalent evening use at 19:00, every day.
+COP, cold-water temperature, recovery power and standing costs are explicit
+uncalibrated assumptions. It does not modify the space-heating model.
+
+```sh
+pixi run boiler --config configs/boiler.example.toml --start 2026-01-01 --end 2027-01-01 --output outputs/boiler_2026
+```
+
+Outputs contain hourly/daily electrical kWh and provenance, with explicit DST
+handling and recovery debt. See [specifications, equations and limitations](docs/boiler_model.md).
+The household CV installation can add heat downstream using gas; that top-up is
+outside this model's electrical-consumption boundary. `daily_profile.png` shows
+the first simulated day's illustrative electrical demand.
+
+## Common component table format
+
+Solar, space heating (each scenario folder), and the boiler all write the same
+integration tables. See [the shared data contract](docs/energy_tables.md).
+
+| File | Columns |
+| --- | --- |
+| `hourly_energy.txt` | `interval_start_utc`, `interval_start_local`, `energy_kwh` |
+| `daily_energy.txt` | `date`, `energy_kwh` |
+
+Each hourly row is **one elapsed hour**, labeled at its start, with positive kWh
+produced (solar) or consumed (heat pump/boiler). UTC labels include `+00:00`;
+local labels include their actual UTC offset. Join components on UTC, and keep
+production and consumption separate. Local DST days have 23/25 hourly rows.
+Component-specific files remain available for existing plotting workflows.
+Boiler half-hour calculations are summed into hours; detailed steps are saved
+in `diagnostics.txt`, with hourly electrical use also in `hourly_consumption.txt`.

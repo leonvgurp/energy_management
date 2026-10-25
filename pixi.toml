@@ -34,3 +34,4 @@ smoke = "python -c 'import numpy, scipy, polars, matplotlib, seaborn, plotly, st
 heat-pump-weather = "python -m energy_management.heat_pump_weather"
 heat-pump = "python -m energy_management.heat_pump"
 heat-pump-plots = "python -m energy_management.heat_pump_plots"
+boiler = "python -m energy_management.boiler"

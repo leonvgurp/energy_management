@@ -1,0 +1,20 @@
+# Household schedule supplied by user; draw volumes are a provisional interpretation.
+timezone = "Europe/Amsterdam"
+volume_l = 200.0
+setpoint_c = 60.0
+cold_water_c = 10.0
+heat_pump_limit_c = 60.0
+# Assumptions, not performance measurements at 60 C.
+cop = 3.0
+heat_pump_thermal_kw = 1.42
+resistance_kw = 1.2
+# Electrical allowance for standing losses/control; not a measured 60 C value.
+standing_electric_kw = 0.025
+
+[[draws]]
+time = "08:30"
+fraction = 1.0
+
+[[draws]]
+time = "19:00"
+fraction = 0.5
