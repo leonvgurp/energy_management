@@ -1,0 +1,28 @@
+[workspace]
+name = "energy_management"
+version = "0.1.0"
+channels = ["conda-forge"]
+platforms = ["osx-arm64"]
+
+[dependencies]
+python = "3.12.*"
+numpy = ">=2,<3"
+scipy = ">=1.14,<2"
+polars = ">=1.0,<2"
+matplotlib = ">=3.9,<4"
+seaborn = ">=0.13,<1"
+plotly = ">=6,<7"
+statsmodels = ">=0.14,<1"
+scikit-learn = ">=1.5,<2"
+pymc = ">=5,<6"
+arviz = ">=0.20,<1"
+pytest = ">=8,<10"
+
+[activation.env]
+PYTHONPATH = "src"
+MPLBACKEND = "Agg"
+MPLCONFIGDIR = "$PIXI_PROJECT_ROOT/.pixi/cache/matplotlib"
+
+[tasks]
+test = "python -m pytest -q"
+smoke = "python -c 'import numpy, scipy, polars, matplotlib, seaborn, plotly, statsmodels, sklearn, pymc, arviz; print(\"All required scientific imports passed\")'"
