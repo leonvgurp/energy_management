@@ -1,0 +1,1 @@
+"""Reusable household energy calculations."""

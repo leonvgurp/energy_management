@@ -24,5 +24,10 @@ MPLBACKEND = "Agg"
 MPLCONFIGDIR = "$PIXI_PROJECT_ROOT/.pixi/cache/matplotlib"
 
 [tasks]
+solar = "python -m energy_management.solar"
+solar-statistics = "python -m energy_management.solar"
+solar-history = "python -m energy_management.solar_history"
+solar-plots = "python -m energy_management.solar_plots"
+solar-compare = "python -m energy_management.solar_comparison"
 test = "python -m pytest -q"
 smoke = "python -c 'import numpy, scipy, polars, matplotlib, seaborn, plotly, statsmodels, sklearn, pymc, arviz; print(\"All required scientific imports passed\")'"
