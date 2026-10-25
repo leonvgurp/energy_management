@@ -10,7 +10,7 @@ import tomllib
 from zoneinfo import ZoneInfo
 
 import polars as pl
-from .energy_tables import write_energy_tables
+from .energy_tables import hourly_energy, write_energy_tables
 
 # Water density approximated as 1 kg/l; specific heat 4.186 kJ/(kg K).
 KWH_PER_L_K = 4.186 / 3600
@@ -92,6 +92,20 @@ def simulate(c, start, end):
     return pl.DataFrame(rows)
 
 
+def hourly_diagnostics(frame, timezone_name):
+    """Sum interval energies; retain recovery debt at each hour's end."""
+    labels = hourly_energy(frame, 'consumption_kwh', timezone_name, 30)
+    keys = [datetime.fromisoformat(t).replace(minute=0).isoformat()
+            for t in frame['interval_start_utc']]
+    energies = [name for name in frame.columns
+                if name.endswith('_kwh') and name != 'outstanding_heat_kwh']
+    grouped = frame.with_columns(pl.Series('hour', keys)).group_by('hour', maintain_order=True).agg(
+        pl.col('date').first(), *[pl.col(name).sum() for name in energies],
+        pl.col('outstanding_heat_kwh').last())
+    return labels.select('interval_start_utc', 'interval_start_local').hstack(
+        grouped.drop('hour')).select(frame.columns)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config', type=Path, required=True)
@@ -101,10 +115,10 @@ def main():
     a = p.parse_args()
     raw = a.config.read_bytes()
     c = tomllib.loads(raw.decode())
-    frame = simulate(c, a.start, a.end)
+    frame = hourly_diagnostics(simulate(c, a.start, a.end), c['timezone'])
     a.output.mkdir(parents=True, exist_ok=True)
     frame.write_csv(a.output/'diagnostics.txt', separator='\t')
-    hourly, daily = write_energy_tables(frame, a.output, 'consumption_kwh', c['timezone'], 30)
+    hourly, daily = write_energy_tables(frame, a.output, 'consumption_kwh', c['timezone'])
     hourly.rename({'energy_kwh': 'consumption_kwh'}).write_csv(a.output/'hourly_consumption.txt', separator='\t')
     daily = daily.rename({'energy_kwh': 'daily_kwh'})
     daily.write_csv(a.output/'daily_consumption.txt', separator='\t')
@@ -116,8 +130,9 @@ def main():
     hours = [datetime.fromisoformat(t).hour + datetime.fromisoformat(t).minute/60
              for t in first['interval_start_local']]
     fig, ax = plt.subplots(figsize=(9, 3.5))
-    ax.bar(hours, first['consumption_kwh'].to_numpy()*2, width=0.48)
-    ax.set(xlabel='Local hour (repeated on autumn DST day)',
+    ax.bar(range(first.height), first['consumption_kwh'].to_numpy(), width=0.95, align='edge')
+    ax.set_xticks(range(first.height)[::3], [f'{h:02.0f}:00' for h in hours[::3]])
+    ax.set(xlabel='Local interval start (elapsed hours; repeated hour on autumn DST day)',
            ylabel='Average electrical power (kW)',
            title=f'Illustrative aroSTOR electricity: {a.start}, COP {c["cop"]}')
     fig.tight_layout()
@@ -125,6 +140,7 @@ def main():
     plt.close(fig)
     summary = dict(consumption_kwh=frame['consumption_kwh'].sum(), outstanding_heat_kwh=frame['outstanding_heat_kwh'][-1])
     (a.output/'run.json').write_text(json.dumps(dict(method='hot-equivalent replacement budget; sequential heating', config=c,
+        output_interval_minutes=60, calculation_step_minutes=30,
         config_sha256=hashlib.sha256(raw).hexdigest(), start=str(a.start), end=str(a.end), source=SOURCE,
         retrieved='2026-10-25', initial_state='No outstanding recovery', summary=summary), indent=2)+'\n')
     print(json.dumps(summary, indent=2))

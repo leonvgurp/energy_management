@@ -172,7 +172,7 @@ produced (solar) or consumed (heat pump/boiler). UTC labels include `+00:00`;
 local labels include their actual UTC offset. Join components on UTC, and keep
 production and consumption separate. Local DST days have 23/25 hourly rows.
 Component-specific files remain available for existing plotting workflows.
-Boiler half-hour calculations are summed into hours; detailed steps are saved
+Boiler half-hour calculations are summed into hours; hourly diagnostics are saved
 in `diagnostics.txt`, with hourly electrical use also in `hourly_consumption.txt`.
 
 ## Synthetic weather for planning

@@ -69,12 +69,18 @@ pixi run test
 ```
 
 Edit an ignored `data/boiler.toml` copy for private/calibrated inputs. Outputs:
-`hourly_energy.txt`, `daily_energy.txt`, `hourly_consumption.txt`,\n`daily_consumption.txt`, half-hourly `diagnostics.txt` (TSV), and `run.json`
+`hourly_energy.txt`, `daily_energy.txt`, `hourly_consumption.txt`,
+`daily_consumption.txt`, hourly `diagnostics.txt` (TSV), and `run.json`
 with configuration, hash, manufacturer URL, date bounds and totals. Intervals
-are 30 elapsed minutes, UTC-unique and offset-aware locally. DST days have 46/50
+in the hourly tables are one elapsed hour, UTC-unique and offset-aware locally. DST days have 23/25
 rows; draw times stay at local 08:30/19:00. The end date is exclusive. Uniform
 standing allowance follows elapsed hours. Unsupported ambiguous overnight draw
 times fail explicitly. Output files are replaced on rerun.
+
+Half-hour steps exist only inside the calculation to preserve the 08:30 draw.
+All saved interval tables and the daily profile plot use hours. Diagnostic energy
+columns sum the internal steps; outstanding recovery heat is the end-of-hour
+state, not a sum. Daily tables remain local-calendar daily totals.
 
 Baseline is the supplied unchanged schedule. Explore COP 2.5–3.5 and mains
 5–15°C as sensitivity assumptions, not statistical confidence limits. The most

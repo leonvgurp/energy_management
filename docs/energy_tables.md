@@ -31,5 +31,6 @@ Existing `hourly_yields.txt`, `hourly_consumption.txt`, and daily component tabl
 remain convenience interfaces; new cross-component consumers should read the
 shared files. Boiler `daily_consumption.txt` now matches space heating's
 `date`, `daily_kwh` schema. Boiler detailed heat and recovery information lives
-in half-hourly `diagnostics.txt`, separate from electrical-energy integration.
-The old `half_hourly_consumption.txt` is a legacy artifact, not a shared input.
+in hourly `diagnostics.txt`, separate from electrical-energy integration.
+Energy columns are summed over each hour; recovery debt is the end-of-hour state.
+Half-hour calculation steps are internal only and are not exported.
