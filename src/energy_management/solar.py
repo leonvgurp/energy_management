@@ -18,6 +18,7 @@ import polars as pl
 from scipy.integrate import quad
 from scipy.optimize import brentq
 from scipy.special import erfc
+from .energy_tables import write_energy_tables
 from scipy.stats import beta
 import seaborn as sns
 
@@ -374,6 +375,7 @@ def main(method="statistics"):
     hourly = hourly_yields(daily, events, config, tzid)
     summary = monthly_summary(config, daily)
     args.output.mkdir(parents=True, exist_ok=True)
+    write_energy_tables(hourly, args.output, 'yield_kwh', tzid)
     for name, frame in (("daily_yields", daily), ("hourly_yields", hourly),
                         ("monthly_summary", summary), ("solar_calendar", events)):
         frame.write_csv(args.output / f"{name}.txt", separator="\t")

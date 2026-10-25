@@ -12,6 +12,7 @@ import polars as pl
 from scipy.interpolate import RegularGridInterpolator
 
 from .heat_pump_weather import bounds, validate_weather
+from .energy_tables import write_energy_tables
 
 
 def load_config(path):
@@ -170,6 +171,7 @@ def run(config_path, weather_dir, output, reference_path=None):
         frames.append(frame)
         dest = output/scenario
         dest.mkdir(exist_ok=True)
+        write_energy_tables(frame, dest, 'consumption_kwh', config['weather']['timezone'])
         frame.select('interval_start_utc', 'interval_start_local', 'consumption_kwh').write_csv(dest/'hourly_consumption.txt', separator='\t')
         frame.write_csv(dest/'diagnostics.txt', separator='\t')
         daily = frame.group_by('date').agg(pl.col('consumption_kwh').sum().alias('daily_kwh')).sort('date')
