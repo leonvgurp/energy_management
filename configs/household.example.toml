@@ -1,0 +1,259 @@
+# Illustrative full January–December scenario, NOT household calibration.
+# Year-independent inputs; the runner supplies a reference calendar for timestamps/DST.
+[scenario]
+name = "illustrative_household"
+timezone = "Europe/Amsterdam"
+seed = 42
+
+[weather]
+# monthly_statistics runs offline; file accepts existing KNMI/bootstrap weather.txt.
+# File paths are relative to this config, and must cover the reference calendar.
+mode = "monthly_statistics"
+file = ""
+latitude = 52.1
+longitude = 5.18
+# Assumed monthly means and irradiation, not sourced climate normals.
+monthly_temperature_c = [4, 4, 7, 10, 14, 17, 19, 18, 15, 11, 7, 4]
+monthly_radiation_kwh_m2 = [20, 35, 70, 110, 145, 155, 155, 130, 90, 55, 25, 18]
+# 1 = baseline sunshine; multiplies radiation AND solar monthly yield budgets.
+sunshine_factor = 1.0
+monthly_sunshine_factors = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+temperature_offset_c = 0.0
+# Negative = colder winter, in the months listed here.
+winter_temperature_offset_c = 0.0
+winter_months = [12, 1, 2]
+temperature_sigma_c = 2.0
+temperature_hourly_correlation = 0.97
+diurnal_temperature_amplitude_c = 2.0
+cloud_log_sigma = 0.6
+daily_correlation = 0.7
+humidity_pct = 80.0
+wind_m_s = 3.0
+
+[solar]
+locality = "Illustrative central Netherlands"
+monthly_kwh = [100, 150, 250, 350, 500, 550, 530, 480, 350, 220, 140, 90]
+max_daily_kwh = [15, 18, 22, 25, 30, 30, 30, 28, 25, 22, 18, 15]
+max_power_kw = 3.85
+width = 0.45
+
+[heat_pump]
+scenario = "base"
+[heat_pump.house]
+setpoint_c = 20.0
+heated_areas_m2 = [50.0, 12.0]
+# H and C are independent assumptions, NOT inferred from area or label.
+heat_loss_kw_per_k = 0.16
+thermal_capacity_kwh_per_k = 12.0
+internal_gains_kw = 0.3
+solar_aperture_m2 = 3.0
+wind_loss_fraction_per_m_s = 0.0
+initial_indoor_c = 20.0
+
+[heat_pump.operation]
+curve = 0.5
+# Approximation: setpoint + curve * curve_multiplier * (setpoint - outdoor).
+curve_multiplier = 1.0
+min_flow_c = 24.0
+max_flow_c = 42.0
+heating_cutoff_c = 16.0
+summer_off_start = "05-15"
+summer_off_end = "09-15"
+# Recovery of indoor deficit; finite response avoids instantaneous reheating.
+recovery_hours = 8.0
+# First-order response of heat delivery request (effective floor/control lag).
+response_hours = 3.0
+initial_heating_kw = 0.0
+# Emitter conductance is an assumption; caps heat delivered at a given flow.
+emitter_kw_per_k = 0.45
+auxiliary_active_kw = 0.03
+auxiliary_standby_kw = 0.0
+cop_multiplier = 1.0
+capacity_multiplier = 1.0
+
+[heat_pump.performance]
+# Illustrative rectangular map, NOT manufacturer-certified data.
+source = "Assumed illustrative map; replace with sourced model-specific points"
+outdoor_c = [-10.0, 0.0, 10.0, 20.0]
+flow_c = [24.0, 42.0]
+# Rows outdoor temperature; columns flow temperature.
+cop = [[2.8, 2.1], [3.8, 2.8], [5.0, 3.6], [6.0, 4.4]]
+capacity_kw = [[6.0, 5.5], [7.0, 6.5], [8.0, 7.5], [8.0, 7.5]]
+# Explicit policy: clamp to map boundary, flag every affected hour.
+boundary_policy = "clamp_and_flag"
+
+[heat_pump.scenarios.low]
+heat_loss_factor = 0.75
+thermal_capacity_factor = 0.75
+cop_factor = 1.1
+shutdown_shift_days = -14
+
+[heat_pump.scenarios.base]
+heat_loss_factor = 1.0
+thermal_capacity_factor = 1.0
+cop_factor = 1.0
+shutdown_shift_days = 0
+
+[heat_pump.scenarios.high]
+heat_loss_factor = 1.25
+thermal_capacity_factor = 1.25
+cop_factor = 0.9
+shutdown_shift_days = 14
+
+# Verified reference points, NOT a complete performance map or maximum capacities.
+# Variant suffix S2 needs confirmation against the installed unit.
+[heat_pump.manufacturer_reference]
+model = "VWL 75/6 A 230V S2"
+source = "https://www.vaillant.ch/downloads/installationsanleitungen/deutsch/waermepumpen/installations-und-betriebsanleitung-arotherm-plus-vwl-35-75-2510805.pdf"
+document = "0020299004_09, printed pages 191-192, retrieved 2026-10-25"
+outdoor_c = [-7.0, 2.0, 7.0, 7.0]
+flow_c = [35.0, 35.0, 35.0, 45.0]
+cop = [2.8, 4.1, 4.8, 3.6]
+test_heating_output_kw = [7.0, 3.1, 4.6, 4.2]
+usage = "Reference only; simulator uses the explicit assumed rectangular performance map"
+
+
+[boiler]
+# Household schedule supplied by user; draw volumes are a provisional interpretation.
+volume_l = 200.0
+setpoint_c = 60.0
+cold_water_c = 10.0
+heat_pump_limit_c = 60.0
+# Assumptions, not performance measurements at 60 C.
+cop = 3.0
+heat_pump_thermal_kw = 1.42
+resistance_kw = 1.2
+# Electrical allowance for standing losses/control; not a measured 60 C value.
+standing_electric_kw = 0.025
+
+[[boiler.draws]]
+time = "08:30"
+fraction = 1.0
+
+[[boiler.draws]]
+time = "19:00"
+fraction = 0.5
+
+[phev]
+# Synthetic example. Use a private config in data/car/ for household values.
+annual_meter_kwh = 2400.0
+charging_power_kw = 3.5
+charge_start = "17:45"
+# Assumed recurring charge sizes with two no-charge days per nominal cycle.
+# Cycle order is shuffled, with occasional replacements; no weekly claim.
+daily_cycle_kwh = [0.0, 0.0, 3.0, 9.5, 9.5, 12.0, 12.0]
+monthly_candidates = 512
+max_charge_kwh = 13.0
+# Assumed January peak / July trough; zero restores the unseasonal baseline.
+seasonal_amplitude = 0.15
+
+[general]
+# Scenario assumptions, not measured appliance shares. Shares must sum to one.
+annual_total_kwh = 2500.0
+
+[general.seasonality]
+# Applies to routine and flexible consumption, not continuous background.
+# Optional external calibration replaces these shape parameters, not budget shares.
+amplitude = 0.2
+peak_day = 15.0
+
+[general.background]
+share = 0.35
+
+[general.lighting]
+share = 0.08
+# Representative central Netherlands; configurable, not household coordinates.
+latitude = 52.1
+longitude = 5.18
+wake_hour = 7.0
+bed_hour = 23.0
+# 1: only dark occupied hours; 0: all occupied hours equally.
+seasonal_strength = 0.8
+
+[general.routine]
+share = 0.42
+morning_hour = 8.5
+morning_width = 1.5
+morning_weight = 1.0
+daytime_hour = 13.0
+daytime_width = 3.0
+daytime_weight = 0.6
+evening_hour = 19.0
+evening_width = 2.0
+evening_weight = 1.5
+weekend_offset_hours = 1.0
+
+[general.evening_shift]
+share = 0.10
+fraction_moved = 0.0
+# Hour bins 00:00..23:00. Monday=first day; Sunday=last day.
+source_hour_weights = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0]
+source_day_weights = [1,1,1,1,1,1,1]
+destination_hour_weights = [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0]
+destination_day_weights = [1,1,1,1,1,1,1]
+
+[general.weekend_shift]
+share = 0.05
+fraction_moved = 0.0
+source_hour_weights = [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0]
+source_day_weights = [0,0,0,0,0,1,1]
+destination_hour_weights = [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0]
+# All days eligible, including partial boundary weeks with no weekdays available.
+# Set Saturday/Sunday to zero for a strictly weekday-only target when feasible.
+destination_day_weights = [1,1,1,1,1,1,1]
+
+[general.variability]
+# One reproducible annual realization, using scenario.seed.
+daily_sigma = 0.20
+hourly_sigma = 0.25
+hourly_correlation = 0.65
+
+[plots]
+# Use "viridis" or "magma". Each heatmap has its own labeled kWh color scale.
+cmap = "magma"
+winter_months = [12, 1, 2]
+summer_months = [6, 7, 8]
+# Hours at/above this annual consumption quantile receive high_consumption=true.
+high_consumption_quantile = 0.95
+
+# User-supplied GreenChoice prices; held constant for policy comparisons.
+# Assumption: import and cost prices include VAT and energy tax where applicable.
+# Export 0.15 is the stated receipt excluding VAT; no VAT is added for consumer.
+[costs]
+name = "GreenChoice user supplied"
+saldering = true
+meter = "single" # or dual; check your meter/contract
+import_single_eur_kwh = 0.24557
+import_normal_eur_kwh = 0.23952
+import_offpeak_eur_kwh = 0.25162
+export_eur_kwh = 0.15000
+# Assumed schedule, contract/region dependent. List applicable holidays explicitly.
+offpeak_start_hour = 23
+offpeak_end_hour = 7
+offpeak_dates = []
+# Explicit assumption for allocating annual credits across dual registers.
+netting_allocation = "proportional" # or normal_first / offpeak_first
+
+[[costs.fixed]]
+name = "Vaste leveringskosten"
+eur_day = 0.30635
+eur_year = 0.0
+[[costs.fixed]]
+name = "Systeembeheerkosten"
+eur_day = 1.30620
+eur_year = 0.0
+[[costs.fixed]]
+name = "Vermindering energiebelasting"
+eur_day = -1.72317
+eur_year = 0.0
+
+[[costs.export_charges]]
+name = "Terugleverkosten"
+basis = "gross_export" # all meter export, including saldered kWh
+eur_kwh = 0.13613
+eur_day = 0.0
+eur_year = 0.0
+# Optional step schedule: ONE fee selected with upper-inclusive boundaries.
+# e.g. [{up_to_kwh=500, eur_year=0}, {up_to_kwh=1000, eur_year=70}]
+# Extend final upper bound to cover expected export; out-of-range raises an error.
+tiers = []
