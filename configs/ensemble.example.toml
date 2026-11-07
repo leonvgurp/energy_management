@@ -1,0 +1,15 @@
+# Small workflow config; equipment, schedules, weather and tariffs live in the
+# detailed household config. All paths here are relative to THIS file.
+[ensemble]
+scenario_config = "household.example.toml"
+runs = 100
+seed = 42 # Realizations use seeds 42, 43, ..., 141; replaces scenario.seed.
+calendar_year = 2001 # Calendar/DST labels only, not a forecast year.
+output = "../outputs/ensemble"
+plots = true
+
+# Optional full household configs, compared with the reference using identical
+# seeds. Each can change any assumption, including tariffs or equipment.
+# [alternatives]
+# daytime_charging = "../data/overall/daytime_charging.toml"
+# shifted_general = "../data/overall/shifted_general.toml"

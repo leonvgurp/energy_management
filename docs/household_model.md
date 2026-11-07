@@ -1,5 +1,9 @@
 # Integrated annual model
 
+The main CLI is now `pixi run energy`, the [repeated-seed ensemble workflow](ensemble_workflow.md).
+The single-year CLI described below is `pixi run energy-year`; its reusable model
+and detailed household configuration remain the foundation of each realization.
+
 ## Calendar and configuration
 
 `configs/household.example.toml` is the complete public input contract. It includes
@@ -109,7 +113,8 @@ the annual consumption quantile specified in `plots.high_consumption_quantile`;
 its numeric threshold and annual peak appear in `run.json`. Daily tables sum by
 local date, including all 23/25 DST hours. Energy does not become power except as
 the hourly average (kWh in one elapsed hour equals average kW for that interval).
-There are no tariff costs, battery flows or subhourly netting in this integration.
+The optional cost model bills the resulting grid flows. There are no battery flows
+or subhourly netting in this integration.
 
 The baseline uses identical weather, equipment and random draws, but disables
 **general-use movement only**. Compare `baseline_hourly_energy.txt` against

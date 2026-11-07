@@ -115,7 +115,7 @@ def day_profile(hourly, day, *, weather, solar_events):
     return fig
 
 
-def plot_outputs(hourly, root, config, days=None, *, weather, solar_events):
+def plot_outputs(hourly, root, config, days=None, *, weather, solar_events, ensemble_runs=None):
     root = Path(root)
     daily = daily_totals(hourly)
     for column in LABELS:
@@ -123,6 +123,8 @@ def plot_outputs(hourly, root, config, days=None, *, weather, solar_events):
         dest = root/name
         dest.mkdir(parents=True, exist_ok=True)
         fig = calendar_heatmap(daily, column, config['cmap'])
+        if ensemble_runs is not None:
+            fig.axes[0].set_title(f'{LABELS[column]} · mean of {ensemble_runs} synthetic years')
         fig.savefig(dest/f'{column}_heatmap.png', dpi=150)
         plt.close(fig)
     if days:
@@ -131,6 +133,9 @@ def plot_outputs(hourly, root, config, days=None, *, weather, solar_events):
         selected = select_example_days(hourly, config['winter_months'], config['summer_months'])
     for row in selected:
         fig = day_profile(hourly, row['date'], weather=weather, solar_events=solar_events)
+        if ensemble_runs is not None:
+            fig.suptitle(f'Mean of {ensemble_runs} synthetic years · dates selected from mean profile')
+            fig.tight_layout(rect=(0, 0, 1, .97))
         fig.savefig(root/'overall'/f'{row["label"]}_{row["date"]}.png', dpi=150)
         plt.close(fig)
     (root/'overall'/'selected_days.json').write_text(json.dumps(selected, indent=2)+'\n')
@@ -139,7 +144,7 @@ def plot_outputs(hourly, root, config, days=None, *, weather, solar_events):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--input', type=Path, default=Path('outputs/household'))
+    p.add_argument('--input', type=Path, default=Path('outputs/ensemble'))
     p.add_argument('--day', action='append', help='MM-DD or YYYY-MM-DD, repeatable')
     a = p.parse_args()
     meta = json.loads((a.input/'run.json').read_text())
@@ -147,7 +152,8 @@ def main():
     weather = pl.read_csv(a.input/'data/weather/diagnostics.txt', separator='\t')
     events = pl.read_csv(a.input/'data/solar/diagnostics.txt', separator='\t')
     plot_outputs(hourly, a.input/'plots', meta['config']['plots'], a.day,
-                 weather=weather, solar_events=events)
+                 weather=weather, solar_events=events,
+                 ensemble_runs=len(meta['seeds']) if meta.get('kind') == 'synthetic_year_ensemble' else None)
 
 
 if __name__ == '__main__':

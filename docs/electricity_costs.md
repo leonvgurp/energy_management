@@ -77,7 +77,7 @@ those two runs no longer isolate just the policy effect.
 ## Usage and outputs
 
 ```
-pixi run energy --config configs/household.example.toml --output outputs/cost_example --no-plots
+pixi run energy-year --config configs/household.example.toml --output outputs/cost_example --no-plots
 pixi run test
 ```
 

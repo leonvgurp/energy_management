@@ -41,7 +41,7 @@ Half-hour calculation steps are internal only and are not exported.
 
 ## Integrated household outputs
 
-`pixi run energy` now writes the five component contracts under
+`pixi run energy-year` writes the five component contracts under
 `outputs/household/data/<modality>/` and a wide hourly/daily balance under
 `data/overall/`. See [the annual contract](household_model.md) for columns,
 sign conventions, reference calendars, weather adjustments and baseline outputs.

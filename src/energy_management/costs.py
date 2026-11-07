@@ -12,6 +12,14 @@ import numpy as np
 from .calendar import calendar_hours
 
 
+def _offpeak_mask(local, config):
+    start, end = config['offpeak_start_hour'], config['offpeak_end_hour']
+    holidays = {tuple(map(int, day.split('-'))) for day in config['offpeak_dates']}
+    return np.array([t.weekday() >= 5 or (t.month, t.day) in holidays or
+                     (t.hour >= start or t.hour < end if start > end else start <= t.hour < end)
+                     for t in local])
+
+
 def validate(config):
     required = {'name', 'saldering', 'meter', 'import_single_eur_kwh',
                 'import_normal_eur_kwh', 'import_offpeak_eur_kwh',
@@ -82,10 +90,7 @@ def annual_cost(hourly, config, timezone_name='Europe/Amsterdam', saldering=None
     if any(not np.isfinite(a).all() or (a < 0).any() for a in flows):
         raise ValueError('Grid energy must be nonnegative, finite and nonmissing')
     imports, exports = flows
-    start, end = config['offpeak_start_hour'], config['offpeak_end_hour']
-    offpeak = np.array([t.weekday() >= 5 or t.strftime('%m-%d') in config['offpeak_dates'] or
-                       (t.hour >= start or t.hour < end if start > end else start <= t.hour < end)
-                       for t in local])
+    offpeak = _offpeak_mask(local, config)
     quantities = np.array([imports[~offpeak].sum(), imports[offpeak].sum()])
     rates = np.array([config['import_normal_eur_kwh'], config['import_offpeak_eur_kwh']])
     if config['meter'] == 'single':
@@ -121,7 +126,47 @@ def annual_cost(hourly, config, timezone_name='Europe/Amsterdam', saldering=None
     return dict(contract=config['name'], saldering=enabled, calendar_year=year, days=days,
                 grid_import_kwh=total_import, grid_export_kwh=total_export,
                 netted_kwh=netted, remunerated_export_kwh=excess,
-                lines=lines, total_eur=sum(line['eur'] for line in lines))
+                lines=lines, total_eur=sum(line['eur'] for line in lines),
+                import_register_kwh=quantities.tolist(),
+                netting_register_kwh=credits.tolist(), import_register_eur_kwh=rates.tolist())
+
+
+def monthly_costs(hourly, config, timezone_name='Europe/Amsterdam', saldering=None):
+    """Allocate the annual bill to months; these are NOT monthly settlement bills.
+
+    Annual register credits follow each month's imports in that register. Export
+    receipts and variable charges follow exports; annual/daily charges and tier
+    fees follow calendar days. All twelve months sum to the annual bill exactly.
+    """
+    bill = annual_cost(hourly, config, timezone_name, saldering)
+    local = [datetime.fromisoformat(t).astimezone(ZoneInfo(timezone_name))
+             for t in hourly['interval_start_utc']]
+    months = np.array([t.month for t in local])
+    offpeak = _offpeak_mask(local, config)
+    imports, exports = (hourly[c].to_numpy() for c in ('grid_import_kwh', 'grid_export_kwh'))
+    quantities = np.asarray(bill['import_register_kwh'])
+    credits = np.asarray(bill['netting_register_kwh'])
+    rates = np.asarray(bill['import_register_eur_kwh'])
+    fractions = np.divide(credits, quantities, out=np.zeros(2), where=quantities > 0)
+    result = []
+    for month in range(1, 13):
+        mask = months == month
+        days = len({t.date() for t in local if t.month == month})
+        q = np.array([imports[mask & ~offpeak].sum(), imports[mask & offpeak].sum()])
+        share = float(exports[mask].sum()/bill['grid_export_kwh']) if bill['grid_export_kwh'] else 0.
+        lines = [('grid_import', float(q @ rates)),
+                 ('saldering_credit', -float((q*fractions) @ rates)),
+                 ('export_remuneration', -bill['remunerated_export_kwh']*share*config['export_eur_kwh'])]
+        lines.extend((line['name'], days*line['eur_day']+line['eur_year']*days/bill['days'])
+                     for line in config['fixed'])
+        offset = 3+len(config['fixed'])
+        for line, annual in zip(config['export_charges'], bill['lines'][offset:]):
+            variable = annual['basis_kwh']*line['eur_kwh']
+            lines.append((line['name'], variable*share+(annual['eur']-variable)*days/bill['days']))
+        result.append(dict(month=f'{bill["calendar_year"]}-{month:02d}',
+                           total_eur=sum(value for _, value in lines)))
+        result[-1]['lines'] = [dict(name=name, eur=value) for name, value in lines]
+    return result
 
 
 def comparison(hourly, config, timezone_name='Europe/Amsterdam'):
