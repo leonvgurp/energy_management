@@ -146,3 +146,40 @@ def test_invalid_shared_config(config, section, key, value):
     changed[section][key] = value
     with pytest.raises(ValueError):
         validate_config(changed)
+
+
+def test_weather_driven_pv_totals_and_daily_propagation(config, annual, tmp_path):
+    changed = deepcopy(config)
+    changed['solar']['weather_response'] = dict(
+        reference_monthly_radiation_kwh_m2=config['weather']['monthly_radiation_kwh_m2'],
+        annual_min_factor=.7, annual_max_factor=1.3)
+    changed['weather'].update(mode='file', file='weather.txt')
+    original = annual[2]['weather']
+    for factor in (.8, 1.2):
+        original.with_columns((pl.col('radiation_kwh_m2')*factor)).write_csv(tmp_path/'weather.txt', separator='\t')
+        frame, _, diagnostics, baseline = simulate(changed, config_dir=tmp_path)
+        assert frame['solar_production_kwh'].sum() == pytest.approx(factor*sum(config['solar']['monthly_kwh']))
+        monthly = diagnostics['solar'].group_by(pl.col('date').dt.month().alias('month')).agg(pl.col('daily_kwh').sum()).sort('month')
+        np.testing.assert_allclose(monthly['daily_kwh'], np.asarray(config['solar']['monthly_kwh'])*factor)
+        assert not diagnostics['solar']['daily_kwh'].equals(annual[2]['solar']['daily_kwh'])
+        caps = np.array(config['solar']['max_daily_kwh'])[diagnostics['solar']['date'].dt.month().to_numpy()-1]
+        assert (diagnostics['solar']['daily_kwh'].to_numpy() <= caps+1e-8).all()
+        assert frame['solar_production_kwh'].equals(baseline['solar_production_kwh'])
+        assert frame['solar_production_kwh'].max() <= config['solar']['max_power_kw']
+        repeated = simulate(changed, config_dir=tmp_path)[0]
+        assert repeated.equals(frame)
+
+
+def test_solar_weather_envelope():
+    from datetime import date
+    from energy_management.components.solar import weather_budgets
+    daily = pl.DataFrame(dict(date=[date(2001,m,1) for m in range(1,13)], radiation_kwh_m2=[2.]*12))
+    response = dict(reference_monthly_radiation_kwh_m2=[1.]*12, annual_min_factor=.9, annual_max_factor=1.1)
+    np.testing.assert_allclose(weather_budgets([100.]*12, daily, response), [110.]*12)
+    dark = daily.with_columns(pl.lit(0.).alias('radiation_kwh_m2'))
+    np.testing.assert_allclose(weather_budgets([100.]*12, dark, response), 0)
+    dim = daily.with_columns(pl.lit(.1).alias('radiation_kwh_m2'))
+    np.testing.assert_allclose(weather_budgets([100.]*12, dim, response), [90.]*12)
+    response['reference_monthly_radiation_kwh_m2'][0] = 0
+    with pytest.raises(ValueError, match='weather_response'):
+        weather_budgets([100.]*12, daily, response)

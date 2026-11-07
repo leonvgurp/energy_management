@@ -157,3 +157,16 @@ def test_export_fee_threshold_is_applied_before_averaging(tmp_path, monkeypatch)
     # The average year has 350 kWh export (zero tier fee), but half the actual
     # years cross 400 kWh and incur EUR 100: expected fee is EUR 50.
     assert expected-annual_cost(mean, config['costs'])['total_eur'] == pytest.approx(50.)
+
+
+def test_battery_ensemble_outputs_are_paired(tmp_path):
+    path = workflow(tmp_path, runs=1, alternatives=False)
+    path.write_text(path.read_text() + "\n[batteries.test]\ncapacity_kwh = 2.0\ncost_eur = 1500.0\ncharge_power_kw = 100.0\ndischarge_power_kw = 100.0\ncharge_efficiency = 1.0\ndischarge_efficiency = 1.0\n")
+    run(path)
+    rows = pl.read_csv(tmp_path/'result/data/overall/battery_runs.txt', separator='\t')
+    value = lambda metric: rows.filter(pl.col('metric') == metric)['value'][0]
+    assert value('investment_eur') == 1500
+    assert value('charge_kwh') == pytest.approx(value('discharge_kwh') + value('final_soc_kwh'))
+    config = load_config('configs/household.example.toml')
+    baseline = annual_cost(simulate(config)[0], config['costs'], saldering=False)['total_eur']
+    assert value('without_saldering_annual_savings_eur') == pytest.approx(baseline - value('without_saldering_bill_eur'))
