@@ -81,6 +81,32 @@ def _bounded_scale(weights, total, caps):
     return result
 
 
+def weather_budgets(monthly_kwh, daily_weather, response):
+    """Monthly PV = reference PV × sampled/reference irradiation.
+
+    Clip the annual sum to the empirical scenario envelope, preserving monthly
+    relative weights. Daily and inverter caps are still enforced by generate_year;
+    an infeasible target raises rather than silently losing energy.
+    """
+    reference = np.asarray(response['reference_monthly_radiation_kwh_m2'], dtype=float)
+    lo, hi = response['annual_min_factor'], response['annual_max_factor']
+    if (reference.shape != (12,) or not np.isfinite(reference).all()
+            or (reference <= 0).any() or not np.isfinite([lo, hi]).all()
+            or not 0 <= lo <= 1 <= hi):
+        raise ValueError('Invalid solar weather_response reference or annual factors')
+    radiation = (daily_weather.group_by(pl.col('date').dt.month().alias('month'))
+                 .agg(pl.col('radiation_kwh_m2').sum()).sort('month'))
+    if radiation.height != 12:
+        raise ValueError('Solar weather response requires twelve months')
+    budgets = np.asarray(monthly_kwh)*radiation['radiation_kwh_m2'].to_numpy()/reference
+    total = budgets.sum()
+    baseline = sum(monthly_kwh)
+    if total > 0:
+        budgets *= np.clip(total, baseline*lo, baseline*hi)/total
+    # A completely dark year must remain dark, even with a positive lower bound.
+    return budgets
+
+
 def generate_year(config: SolarConfig, events: pl.DataFrame, seed: int = 42,
                   historical_daily: pl.DataFrame | None = None,
                   daily_weather: pl.DataFrame | None = None) -> pl.DataFrame:
