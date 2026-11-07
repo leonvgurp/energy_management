@@ -27,10 +27,14 @@ Keep calculation code reusable independently of the dashboard.
 
 ## Repository Structure
 
-The repository currently contains `README.md` and this guide; no application, environment,
-or test framework has been established. Inspect the current files before choosing
-tools or introducing conventions. Keep the README current as setup steps and
-workflows are added. Prefer a small, clear structure over speculative scaffolding.
+The Python/Pixi project has modality models in `src/energy_management/components/`,
+shared annual orchestration in `household.py`, configuration in `config.py`, and
+shared calendars, weather, energy tables and plots in sibling modules. The annual
+entry point is `pixi run energy`, using `configs/household.example.toml`. Keep one
+self-contained config per full-year scenario. Source data belong in ignored
+`data/<modality>/` or `data/overall/`; annual outputs split tables and plots by
+modality plus `overall`. Preserve standalone component entry points and existing
+private input paths. Keep the README and reproducible commands current.
 
 ## Modeling and Data
 
