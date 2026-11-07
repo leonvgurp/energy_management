@@ -24,7 +24,8 @@ MPLBACKEND = "Agg"
 MPLCONFIGDIR = "$PIXI_PROJECT_ROOT/.pixi/cache/matplotlib"
 
 [tasks]
-energy = "python -m energy_management.household"
+energy = "python -m energy_management.ensemble"
+energy-year = "python -m energy_management.household"
 energy-plots = "python -m energy_management.plots"
 car-schedule = "python -m energy_management.components.phev"
 car = "python -m energy_management.car"
