@@ -184,6 +184,10 @@ household or validate future prices. `pixi run smoke` checks scientific imports.
 
 ## Electricity costs
 
+For the saved household configuration with **100 historical-weather bootstrap
+years**, paired saldering bills and explanatory seasonal figures, see the
+[household bootstrap analysis](docs/household_bootstrap_analysis.md).
+
 The `[costs]` section (required for ensembles, optional for single years) includes
 the supplied GreenChoice prices and a
 `saldering = true` / `false` toggle. Every annual run calculates both regimes with

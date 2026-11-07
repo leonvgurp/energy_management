@@ -25,6 +25,8 @@ MPLCONFIGDIR = "$PIXI_PROJECT_ROOT/.pixi/cache/matplotlib"
 
 [tasks]
 energy = "python -m energy_management.ensemble"
+household-analysis-prepare = "python scripts/prepare_household_analysis.py"
+household-analysis = "python scripts/analyze_household_bootstrap.py"
 energy-year = "python -m energy_management.household"
 energy-plots = "python -m energy_management.plots"
 car-schedule = "python -m energy_management.components.phev"
