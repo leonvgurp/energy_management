@@ -1,0 +1,61 @@
+# Scenario assumptions, not measured appliance shares. Shares must sum to one.
+annual_total_kwh = 2500.0
+timezone = "Europe/Amsterdam"
+
+[seasonality]
+# Applies to routine and flexible consumption, not continuous background.
+# Optional external calibration replaces these shape parameters, not budget shares.
+amplitude = 0.2
+peak_day = 15.0
+
+[background]
+share = 0.35
+
+[lighting]
+share = 0.08
+# Representative central Netherlands; configurable, not household coordinates.
+latitude = 52.1
+longitude = 5.18
+wake_hour = 7.0
+bed_hour = 23.0
+# 1: only dark occupied hours; 0: all occupied hours equally.
+seasonal_strength = 0.8
+
+[routine]
+share = 0.42
+morning_hour = 8.5
+morning_width = 1.5
+morning_weight = 1.0
+daytime_hour = 13.0
+daytime_width = 3.0
+daytime_weight = 0.6
+evening_hour = 19.0
+evening_width = 2.0
+evening_weight = 1.5
+weekend_offset_hours = 1.0
+
+[evening_shift]
+share = 0.10
+fraction_moved = 0.0
+# Hour bins 00:00..23:00. Monday=first day; Sunday=last day.
+source_hour_weights = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0]
+source_day_weights = [1,1,1,1,1,1,1]
+destination_hour_weights = [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0]
+destination_day_weights = [1,1,1,1,1,1,1]
+
+[weekend_shift]
+share = 0.05
+fraction_moved = 0.0
+source_hour_weights = [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0]
+source_day_weights = [0,0,0,0,0,1,1]
+destination_hour_weights = [0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0]
+# All days eligible, including partial boundary weeks with no weekdays available.
+# Set Saturday/Sunday to zero for a strictly weekday-only target when feasible.
+destination_day_weights = [1,1,1,1,1,1,1]
+
+[variability]
+samples = 30
+seed = 42
+daily_sigma = 0.20
+hourly_sigma = 0.25
+hourly_correlation = 0.65
