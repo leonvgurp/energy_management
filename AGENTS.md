@@ -30,7 +30,9 @@ Keep calculation code reusable independently of the dashboard.
 The Python/Pixi project has modality models in `src/energy_management/components/`,
 shared annual orchestration in `household.py`, configuration in `config.py`, and
 shared calendars, weather, energy tables and plots in sibling modules. The annual
-entry point is `pixi run energy`, using `configs/household.example.toml`. Keep one
+entry point is `pixi run energy`, using `configs/ensemble.example.toml` to run
+repeated seeds of `configs/household.example.toml`; `pixi run energy-year` retains
+single-year execution. Keep one
 self-contained config per full-year scenario. Source data belong in ignored
 `data/<modality>/` or `data/overall/`; annual outputs split tables and plots by
 modality plus `overall`. Preserve standalone component entry points and existing
