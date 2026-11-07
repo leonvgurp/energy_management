@@ -1,6 +1,6 @@
 # Shared energy table contract
 
-All three component generators call `energy_tables.write_energy_tables`.
+All component generators call `energy_tables.write_energy_tables`.
 Tables are UTF-8 TSV with header rows, chronological ordering, and no index.
 
 - `hourly_energy.txt`: string `interval_start_utc`, string
@@ -17,9 +17,13 @@ ranges explicitly, never silently replace missing coverage with zero.
 
 `energy_kwh` is nonnegative interval energy, not kW and not a cumulative meter.
 Solar files represent generation; space-heating and boiler files represent
-electrical consumption. Component identity and scenario are supplied by the
+electrical consumption. Regular-usage root tables represent the configured shifted
+scenario; its `baseline/` folder and each paired sample use the same contract.
+Reference household clock labels are descriptive inputs, never UTC integration
+tables. Component identity and scenario are supplied by the
 folder/run configuration, not inferred from the value. Do not add all components
-with the same sign when computing grid flows. No household integration is added.
+with the same sign when computing grid flows. The annual runner performs the
+strict alignment and household accounting described below.
 
 The writer verifies finite, nonnegative values, consecutive intervals, UTC/local
 consistency and complete hours. It sums boiler half-hour energy without rounding
@@ -34,3 +38,10 @@ shared files. Boiler `daily_consumption.txt` now matches space heating's
 in hourly `diagnostics.txt`, separate from electrical-energy integration.
 Energy columns are summed over each hour; recovery debt is the end-of-hour state.
 Half-hour calculation steps are internal only and are not exported.
+
+## Integrated household outputs
+
+`pixi run energy` now writes the five component contracts under
+`outputs/household/data/<modality>/` and a wide hourly/daily balance under
+`data/overall/`. See [the annual contract](household_model.md) for columns,
+sign conventions, reference calendars, weather adjustments and baseline outputs.
