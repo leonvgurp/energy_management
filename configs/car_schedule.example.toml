@@ -1,0 +1,13 @@
+# Synthetic example. Use a private config in data/car/ for household values.
+timezone = "Europe/Amsterdam"
+annual_meter_kwh = 2400.0
+charging_power_kw = 3.5
+charge_start = "17:45"
+seed = 42
+# Assumed recurring charge sizes with two no-charge days per nominal cycle.
+# Cycle order is shuffled, with occasional replacements; no weekly claim.
+daily_cycle_kwh = [0.0, 0.0, 3.0, 9.5, 9.5, 12.0, 12.0]
+monthly_candidates = 512
+max_charge_kwh = 13.0
+# Assumed January peak / July trough; zero restores the unseasonal baseline.
+seasonal_amplitude = 0.15
