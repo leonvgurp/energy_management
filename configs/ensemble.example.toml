@@ -13,3 +13,29 @@ plots = true
 # [alternatives]
 # daytime_charging = "../data/overall/daytime_charging.toml"
 # shifted_general = "../data/overall/shifted_general.toml"
+
+# Idealized AC-coupled batteries: perfect efficiency and ample power are
+# optimistic assumptions, not product specifications. Costs include installation.
+[batteries.plugin_2kwh]
+capacity_kwh = 2.0
+cost_eur = 1500.0
+charge_power_kw = 100.0
+discharge_power_kw = 100.0
+charge_efficiency = 1.0
+discharge_efficiency = 1.0
+
+[batteries.fixed_5kwh]
+capacity_kwh = 5.0
+cost_eur = 5500.0
+charge_power_kw = 100.0
+discharge_power_kw = 100.0
+charge_efficiency = 1.0
+discharge_efficiency = 1.0
+
+[batteries.fixed_10kwh]
+capacity_kwh = 10.0
+cost_eur = 8500.0
+charge_power_kw = 100.0
+discharge_power_kw = 100.0
+charge_efficiency = 1.0
+discharge_efficiency = 1.0

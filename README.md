@@ -33,7 +33,7 @@ The sample spread describes variation under the chosen assumptions, not a foreca
 interval covering all uncertainty. In particular, solar, car and general-use energy
 budgets remain fixed across seeds; a weather file is reused across seeds. Equipment,
 annual budgets, tariffs and climate uncertainty need separate scenarios. There is no
-battery model or investment assessment yet. See [ensemble assumptions and
+lifetime battery investment assessment yet. See [ensemble assumptions and
 interpretation](docs/ensemble_workflow.md) and the [annual model contract](docs/household_model.md).
 
 ## Run the project
@@ -202,3 +202,27 @@ applicable. Prices and tax treatment are explicit assumptions, not a 2027 quote.
 explain per-kWh export fees, annual bands, fixed charges and the limits for dynamic
 contracts. Statutory saldering ends on 1 January 2027; use updated 2027 contract
 rates for a forecast, or keep rates constant to isolate just the toggle's effect.
+
+The household bootstrap analysis now couples annual PV yield to sampled monthly
+radiation. Its 2023–2025 measured annual PV range is widened by 10% of deviations
+from the mean; see [the method and regeneration commands](docs/household_bootstrap_analysis.md).
+
+### Battery comparisons
+
+The example ensemble includes 2, 5 and 10 kWh battery options with installed
+prices of EUR 1,500, 5,500 and 8,500. Each simulated year is paired with the
+same household realization without a battery. See `data/overall/battery_runs.txt`
+and `battery_summary.txt` under each scenario output for annual grid flows,
+energy charged and discharged, bills, savings under both settlement regimes,
+and the upfront investment. Positive savings mean a lower annual bill.
+
+The hourly model starts each year empty, charges only from solar surplus, and
+discharges into household demand before importing from the grid. It assumes
+perfect efficiency and ample power in the example; these are optimistic, not
+product specifications. Edit capacity, installed cost, AC charge/discharge
+power (kW) and one-way efficiencies in the workflow's `[batteries.*]` tables.
+State of charge is capped at usable capacity; each row represents one hour.
+It does not model within-hour variation, tariff optimization, grid charging,
+degradation, replacement, financing or maintenance. End-of-year stored energy
+is reported and not credited as savings. Annual savings are uncertain and are
+not a lifetime return or guaranteed payback.
