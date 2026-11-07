@@ -35,6 +35,13 @@ def validate_config(c):
     if 'costs' in c:
         from .costs import validate
         validate(c['costs'])
+    if 'weather_response' in c['solar']:
+        from .components.solar import weather_budgets
+        import polars as pl
+        from datetime import date
+        weather_budgets(c['solar']['monthly_kwh'], pl.DataFrame({
+            'date': [date(2001, m, 1) for m in range(1, 13)],
+            'radiation_kwh_m2': [1.0]*12}), c['solar']['weather_response'])
     s, w = c['scenario'], c['weather']
     ZoneInfo(s['timezone'])
     if type(s['seed']) is not int or s['seed'] < 0:

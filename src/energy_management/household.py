@@ -63,11 +63,16 @@ def simulate(config, year=REFERENCE_YEAR, config_dir=Path('.')):
     events = weather.solar_events(year, zone, w['latitude'], w['longitude'])
     climate = weather.generate(config, year, events, config_dir)
     solar_config = deepcopy(config['solar'])
-    # Sunshine changes both solar monthly targets and heat-pump solar gains.
+    response = solar_config.pop('weather_response', None)
+    # Legacy scenarios retain explicit budgets; radiation-response scenarios use
+    # already-adjusted shared weather, so sunshine is never applied twice.
     solar_config['monthly_kwh'] = [value*w['sunshine_factor']*factor
         for value, factor in zip(solar_config['monthly_kwh'], w['monthly_sunshine_factors'])]
-    sc = solar.SolarConfig(**solar_config)
     daily_weather = climate.with_columns(pl.col('interval_start_local').str.slice(0,10).str.to_date().alias('date')).group_by('date').agg(pl.col('radiation_kwh_m2').sum()).sort('date')
+    if response is not None:
+        solar_config['monthly_kwh'] = solar.weather_budgets(
+            config['solar']['monthly_kwh'], daily_weather, response).tolist()
+    sc = solar.SolarConfig(**solar_config)
     solar_daily = solar.generate_year(sc, events, seed, daily_weather=daily_weather)
     solar_hourly = solar.hourly_yields(solar_daily, events, sc, zone)
     hp = heat_pump.simulate(climate, heat_pump_config(config, year), config['heat_pump']['scenario'])
@@ -131,7 +136,7 @@ def run(config_path, output, year=REFERENCE_YEAR, days=None, make_plots=True):
             'All modality outputs are modeled electrical kWh, not measured consumption; EUR costs are estimates at configured tariffs.',
             'General consumption excludes space heating, boiler and PHEV charging.',
             'Heat pump models space heating only; boiler is an independent hot-water unit.',
-            'Solar uses capped Gaussian curves with shared daily radiation weights and configured monthly budgets.',
+            'Solar uses capped Gaussian curves and shared daily radiation; configured weather_response scales monthly budgets and bounds annual yield when enabled.',
             'Monthly-statistics weather and equipment settings are illustrative, not calibrated household observations.',
             'Net balance = production - consumption; positive means surplus. No battery or subhourly netting.',
             'Initial building temperature and zero boiler recovery debt are model boundary assumptions; final recovery debt is retained in diagnostics.',
