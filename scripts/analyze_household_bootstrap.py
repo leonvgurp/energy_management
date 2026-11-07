@@ -106,10 +106,15 @@ def run(args):
     for name, path in [('scenario.toml', args.config), ('weather_sampling.toml', args.weather_config)]:
         (out/name).write_bytes(path.read_bytes())
     inputs = [args.config, args.weather_config, source, args.history/'weather.json', Path(__file__)]
+    calibration = args.config.parent/'solar_weather_calibration.json'
+    if calibration.exists():
+        inputs.append(calibration)
+        (out/calibration.name).write_bytes(calibration.read_bytes())
     inputs += list(Path('src/energy_management').rglob('*.py'))
     meta = dict(members=n, seeds=list(range(start_seed, start_seed+n)), calendar_year=year,
                 source_metadata=source_metadata,
                 sha256={str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs})
+    meta['solar_weather_response'] = config['solar'].get('weather_response')
     (out/'provenance.json').write_text(json.dumps(meta, indent=2)+'\n')
     plots(a, m, annual, out)
     report(a, m, config, out, n)
@@ -131,12 +136,21 @@ def plots(a, m, runs, out):
     axes[0].plot(x, monthly('solar_production_kwh'), 'o-', color='#ccbb22', lw=3, label='Solar yield')
     axes[0].set(ylabel='Electrical energy (kWh/month)', title='Winter heating demand; summer solar surplus')
     axes[0].legend(ncol=3, fontsize=9)
-    for key, label, color in [('grid_import_kwh', 'Grid import', '#bb5566'), ('grid_export_kwh', 'Grid export', '#228833'),
-                               ('self_consumption_kwh', 'Solar used directly', '#ccbb22')]:
-        axes[1].plot(x, monthly(key), 'o-', label=label, color=color)
-    axes[1].set(ylabel='Energy (kWh/month)', xticks=x, xticklabels=MONTHS)
-    axes[1].legend()
-    fig.suptitle('Mean of 100 paired bootstrapped weather years · fixed monthly PV targets')
+    direct = monthly('self_consumption_kwh')
+    exports = monthly('grid_export_kwh')
+    production = monthly('solar_production_kwh')
+    np.testing.assert_allclose(direct+exports, production, rtol=0, atol=1e-8)
+    axes[1].bar(x, direct, color='#ccbb22', label='Solar used directly')
+    axes[1].bar(x, exports, bottom=direct, color='#228833', label='Solar exported (upper segment)')
+    axes[1].plot(x, production, 'o--', color='black', label='Total solar production = stacked height')
+    axes[1].plot(x, monthly('grid_import_kwh'), 'o:', color='#bb5566', label='Grid import')
+    axes[1].set(ylabel='Energy (kWh/month)', xticks=x, xticklabels=MONTHS,
+                title='Solar production = used directly + exported; imports are separate')
+    upper = max(base.max(), production.max(), monthly('grid_import_kwh').max())*1.15
+    for ax in axes:
+        ax.set_ylim(0, upper)
+    axes[1].legend(ncol=2, fontsize=9)
+    fig.suptitle('Mean of 100 paired bootstrapped weather years · weather-responsive PV yield')
     fig.tight_layout(); fig.savefig(out/'seasonal_energy.png', dpi=170); plt.close(fig)
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5), gridspec_kw={'width_ratios': [1.2, 1]})
@@ -218,6 +232,7 @@ def report(a, m, config, out, n):
     benefit = months('export_origin_saldering_benefit_eur')
     heating_season = [0, 1, 2, 9, 10, 11]
     lines += ['', '## Main explanations', '',
+              '- Solar production = solar used directly + grid exports. Exports are part of production, and cannot exceed it. In the seasonal figure, the lower stacked bars show this split; upper-panel green bars represent general consumption.',
               f'- October–March accounts for {100*months("grid_import_kwh")[heating_season].sum()/mean("grid_import_kwh"):.1f}% of annual grid imports.',
               f'- April–September exports create {100*benefit[3:9].sum()/benefit.sum():.1f}% of the annual policy benefit.',
               f'- Direct solar avoids {p*100:.3f} ct/kWh in imports. Exports retain {(r-f)*100:.3f} ct/kWh without saldering, or {(p-f)*100:.3f} ct/kWh when fully netted.',
@@ -237,14 +252,14 @@ def report(a, m, config, out, n):
         lines.append(f'| {label} | {mean(f"{load}_consumption_kwh"):.1f} | {months(f"{load}_gross_import_eur").sum():.1f} |')
     lines += ['', '## Inputs and interpretation', '',
         'KNMI De Bilt 2015–2025 observations resampled jointly in seven-day UTC blocks, within a ±21-day seasonal window, with at most 3°C jumps at block joins. Seeds 42–141. Stationary historical climate; no warming trend.',
-        'Solar: saved 2023–2025 mean monthly yields and observed daily limits; 3.85 kW power cap. Radiation redistributes daily solar within fixed monthly targets. Annual sunshine uncertainty is not included.',
+        'Solar: 2023–2025 mean monthly PV scaled by sampled/reference monthly KNMI irradiation from those same years. Annual yield is bounded by observed annual deviations from the mean widened by 10%; daily radiation allocates the resulting monthly energy, under observed daily limits and the 3.85 kW power cap. This linear irradiation response is an assumption, not a fitted physical PV model.',
         'Heating: saved household setpoint 20.5°C, heated areas 55+10+8 m², base thermal/COP assumptions. Boiler: saved 200 L, 60°C, COP 3, draws at 08:30 and 19:00. These are assumption-based models, not calibrated appliance measurements.',
         'Car: saved 2521.2 kWh/year meter-side extrapolation, 3.5 kW from 17:45. General: saved 2500 kWh/year config with exploratory externally fitted shape; no load shifting. No separate car ERE credit is applied to this electricity bill.',
         'Both regimes use identical energy flows and supplied GreenChoice rates: import €0.24557/kWh, export receipt €0.15/kWh, gross-export fee €0.13613/kWh. All supplied fixed charges and tax credit are included. Contract tax treatment remains an assumption; future tariffs are not forecast.',
         'Bill = import × import rate − netted energy × import rate − remunerated export × export rate + gross-export fees + fixed charges. Netting is annual, min(import, export).',
         'Load import costs share each hour’s grid import in proportion to load consumption. These are explanatory allocations, not marginal savings from removing a load. Solar value is avoided grid cost plus net export value at unchanged loads and tariffs; it excludes installation, maintenance and degradation.',
         'Monthly settled costs allocate annual netting credits across import months. Export-origin benefit instead attributes the annual policy difference to the months producing exported energy. The two views answer different timing questions; neither is a monthly invoice.',
-        'Spread covers sampled weather and timing only. Solar/general/car budgets, equipment, tariff uncertainty and structural model error are excluded. Hourly netting can understate actual meter import/export. No battery, gas top-up, capital cost or investment return is modeled.', '',
+        'Spread covers sampled weather and timing only. General/car annual budgets, equipment, tariff uncertainty and structural model error are excluded; solar annual yield varies jointly with sampled weather. Hourly netting can understate actual meter import/export. No battery, gas top-up, capital cost or investment return is modeled.', '',
         '## Figures', '']
     for name in ['seasonal_energy', 'annual_bill', 'seasonal_cost_and_saldering', 'load_costs_and_solar_value']:
         lines.append(f'![{name}]({name}.png)\n')

@@ -11,6 +11,7 @@ import numpy as np
 import polars as pl
 
 from .config import REFERENCE_YEAR, load_config
+from .components import battery
 from .costs import comparison, monthly_costs
 from .energy_tables import write_energy_tables
 from .household import ENERGY_COLUMNS, MODALITIES, daily_totals, simulate
@@ -49,7 +50,7 @@ def load_workflow(path):
     path = Path(path).resolve()
     with path.open('rb') as stream:
         raw = tomllib.load(stream)
-    if set(raw)-{'ensemble', 'alternatives'} or 'ensemble' not in raw:
+    if set(raw)-{'ensemble', 'alternatives', 'batteries'} or 'ensemble' not in raw:
         raise ValueError('Workflow requires [ensemble] and optional [alternatives]')
     c = {**dict(runs=100, seed=42, calendar_year=REFERENCE_YEAR,
                output='../outputs/ensemble', plots=True), **raw['ensemble']}
@@ -71,6 +72,12 @@ def load_workflow(path):
         if not isinstance(value, str) or not value.strip():
             raise ValueError('Each alternative must point to a household TOML config')
         scenarios[name] = (path.parent/value).resolve()
+    batteries = raw.get('batteries', {})
+    for name, settings in batteries.items():
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]*', name) or not isinstance(settings, dict):
+            raise ValueError('Battery names must be safe directory names and settings must be tables')
+        battery.validate(settings)
+    c['batteries'] = batteries
     c['output'] = str((path.parent/c['output']).resolve())
     return c, scenarios
 
@@ -193,7 +200,7 @@ def run(config_path, output=None, make_plots=None, progress=None):
     summaries = {}
     for name, config in configs.items():
         dest = output if name == 'reference' else output/'scenarios'/name
-        annual_rows, monthly_rows = [], []
+        annual_rows, monthly_rows, battery_rows = [], [], []
         moments = {variant: RunningMean([*ENERGY_COLUMNS, 'overproduction', 'high_consumption'])
                    for variant in ('scenario', 'baseline')}
         climate_mean = None
@@ -201,6 +208,20 @@ def run(config_path, output=None, make_plots=None, progress=None):
             realization = deepcopy(config)
             realization['scenario']['seed'] = seed
             hourly, _, diagnostics, baseline = simulate(realization, year, paths[name].parent)
+            for battery_name, settings in workflow['batteries'].items():
+                dispatched = battery.dispatch(hourly, settings)
+                no_battery_bills = comparison(hourly, config['costs'], config['scenario']['timezone'])
+                battery_bills = comparison(dispatched, config['costs'], config['scenario']['timezone'])
+                values = dict(charge_kwh=float(dispatched['battery_charge_kwh'].sum()),
+                    discharge_kwh=float(dispatched['battery_discharge_kwh'].sum()),
+                    final_soc_kwh=float(dispatched['battery_soc_kwh'][-1]),
+                    grid_import_kwh=float(dispatched['grid_import_kwh'].sum()),
+                    grid_export_kwh=float(dispatched['grid_export_kwh'].sum()),
+                    investment_eur=float(settings['cost_eur']))
+                for regime in ('with_saldering', 'without_saldering'):
+                    values[f'{regime}_bill_eur'] = battery_bills[regime]['total_eur']
+                    values[f'{regime}_annual_savings_eur'] = no_battery_bills[regime]['total_eur'] - battery_bills[regime]['total_eur']
+                record(battery_rows, values, run=index, seed=seed, battery=battery_name)
             climate = diagnostics['weather']
             if climate_mean is None:
                 climate_mean = RunningMean([c for c, dtype in climate.schema.items() if dtype.is_numeric()])
@@ -230,6 +251,10 @@ def run(config_path, output=None, make_plots=None, progress=None):
         annual_stats = statistics(annual, ['variant', 'metric', 'unit'])
         monthly_stats = statistics(monthly, ['variant', 'month', 'metric', 'unit'])
         root = dest/'data/overall'
+        if battery_rows:
+            battery_runs = pl.DataFrame(battery_rows)
+            _write(battery_runs, root/'battery_runs.txt')
+            _write(statistics(battery_runs, ['battery', 'metric', 'unit']), root/'battery_summary.txt')
         for filename, frame in [('annual_runs', annual), ('annual_summary', annual_stats),
                                 ('monthly_runs', monthly), ('monthly_summary', monthly_stats)]:
             _write(frame, root/f'{filename}.txt')
@@ -295,6 +320,8 @@ def run(config_path, output=None, make_plots=None, progress=None):
             'Fixed monthly/annual budgets do not acquire interannual uncertainty from new seeds. File weather is identical across seeds.',
             'Baseline disables only general-use shifting. Choice differences are reference minus alternative; positive EUR means savings.',
             'Monthly costs allocate annual settlement; netting credits follow register imports, receipts follow exports, annual fees follow calendar days.',
+            'Battery dispatch starts empty each year, uses solar surplus only and prioritizes household deficits; it does not optimize tariffs. Power limits and efficiencies are configurable.',
+            'Battery investment is upfront; savings exclude degradation, replacement, finance and maintenance.',
             'Both policy regimes hold configured tariffs constant; these estimates are not future contract quotes.',
             'Reference calendar controls weekday, leap-year and DST labels, not forecast year.'])
     (output/'ensemble.json').write_text(json.dumps(provenance, indent=2, allow_nan=False)+'\n')
